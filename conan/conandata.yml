@@ -1,4 +1,4 @@
 sources:
   "3.21.12":
-    url: "https://github.com/Centimo/protobuf/archive/f0dc78d7e6e331b8c6bb2d5283e06aa26883ca7c.tar.gz"
-    sha256: "d594b561fb41bf243233d8f411c7f2b7d913e5c9c1be4ca439baf7e48384c893"
+    url: "https://github.com/Centimo/protobuf/archive/2bbf17aa36dbea5efe99f857d433b44c5726f567.tar.gz"
+    sha256: "1d9ff3b595a1d69b25496e029a7d05acd92a77572af7ccf0b6ad01d2c0526779"
