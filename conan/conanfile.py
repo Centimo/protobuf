@@ -13,6 +13,7 @@ required_conan_version = ">=2.1"
 
 class ProtobufConan(ConanFile):
     name = "protobuf"
+    version = "3.21.12"
     deprecated = "protobuf 3.x is no longer supported by its authors - this version is kept for legacy reasons. Please migrate to a newer version"
     description = "Protocol Buffers - Google's data interchange format"
     topics = ("protocol-buffers", "protocol-compiler", "serialization", "rpc", "protocol-compiler")
@@ -132,6 +133,11 @@ class ProtobufConan(ConanFile):
             "include(\"${CMAKE_CURRENT_LIST_DIR}/protobuf-targets.cmake\")",
             ""
         )
+        replace_in_file(self, protobuf_config_cmake,
+            "include(\"${CMAKE_CURRENT_LIST_DIR}/protobuf-generate.cmake\")",
+            "",
+            strict=False,
+        )
 
         # Disable a potential warning in protobuf-module.cmake.in
         # TODO: remove this patch? Is it really useful?
@@ -159,8 +165,11 @@ class ProtobufConan(ConanFile):
         rmdir(self, os.path.join(self.package_folder, "lib", "pkgconfig"))
         rmdir(self, os.path.join(self.package_folder, "lib", "cmake", "utf8_range"))
 
-        rename(self, os.path.join(self.package_folder, self._cmake_install_base_path, "protobuf-config.cmake"),
-                    os.path.join(self.package_folder, self._cmake_install_base_path, "protobuf-generate.cmake"))
+        config_cmake = os.path.join(self.package_folder, self._cmake_install_base_path, "protobuf-config.cmake")
+        generate_cmake = os.path.join(self.package_folder, self._cmake_install_base_path, "protobuf-generate.cmake")
+        if os.path.exists(config_cmake):
+            rm(self, "protobuf-generate.cmake", folder=os.path.join(self.package_folder, self._cmake_install_base_path))
+            rename(self, config_cmake, generate_cmake)
 
         cmake_config_folder = os.path.join(self.package_folder, self._cmake_install_base_path)
         rm(self, "protobuf-config*.cmake", folder=cmake_config_folder)
