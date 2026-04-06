@@ -67,6 +67,7 @@ class ProtobufConan(ConanFile):
         cmake_layout(self)
 
     def requirements(self):
+        self.requires("abseil/20250512.1", transitive_headers=True, transitive_libs=True)
         if self.options.with_zlib:
             self.requires("zlib/[>=1.2.11 <2]")
 
@@ -102,6 +103,8 @@ class ProtobufConan(ConanFile):
             tc.cache_variables["protobuf_DEBUG_POSTFIX"] = ""
         tc.cache_variables["protobuf_BUILD_LIBPROTOC"] = self.settings.os != "tvOS"
         tc.cache_variables["protobuf_DISABLE_RTTI"] = not self.options.with_rtti
+        tc.cache_variables["protobuf_LOCAL_DEPENDENCIES_ONLY"] = True
+        tc.cache_variables["protobuf_ABSL_PROVIDER"] = "package"
 
         if is_msvc(self) or self._is_clang_cl:
             runtime = self.settings.get_safe("compiler.runtime")
@@ -203,8 +206,10 @@ class ProtobufConan(ConanFile):
         self.cpp_info.components["libprotobuf"].builddirs.append(self._cmake_install_base_path)
         self.cpp_info.components["libprotobuf"].libs = [lib_prefix + "protobuf" + lib_suffix]
         self.cpp_info.components["libprotobuf"].includedirs = ["include"]
+        absl_deps = [f"abseil::{c}" for c in self.conan_data["absl_deps"][self.version]]
+        self.cpp_info.components["libprotobuf"].requires = list(absl_deps)
         if self.options.with_zlib:
-            self.cpp_info.components["libprotobuf"].requires = ["zlib::zlib"]
+            self.cpp_info.components["libprotobuf"].requires.append("zlib::zlib")
 
         if self.settings.os in ["Linux", "FreeBSD"]:
             self.cpp_info.components["libprotobuf"].system_libs.extend(["m", "pthread"])
@@ -220,7 +225,7 @@ class ProtobufConan(ConanFile):
         if self.settings.os != "tvOS":
             self.cpp_info.components["libprotoc"].set_property("cmake_target_name", "protobuf::libprotoc")
             self.cpp_info.components["libprotoc"].libs = [lib_prefix + "protoc" + lib_suffix]
-            self.cpp_info.components["libprotoc"].requires = ["libprotobuf"]
+            self.cpp_info.components["libprotoc"].requires = ["libprotobuf"] + list(absl_deps)
             self.cpp_info.components["libprotoc"].includedirs = ["include"]
 
         # libprotobuf-lite
@@ -230,6 +235,7 @@ class ProtobufConan(ConanFile):
             self.cpp_info.components["libprotobuf-lite"].builddirs.append(self._cmake_install_base_path)
             self.cpp_info.components["libprotobuf-lite"].libs = [lib_prefix + "protobuf-lite" + lib_suffix]
             self.cpp_info.components["libprotobuf-lite"].includedirs = ["include"]
+            self.cpp_info.components["libprotobuf-lite"].requires = list(absl_deps)
             if self.settings.os in ["Linux", "FreeBSD"]:
                 self.cpp_info.components["libprotobuf-lite"].system_libs.extend(["m", "pthread"])
                 if self._is_clang_x86 or "arm" in str(self.settings.arch):
