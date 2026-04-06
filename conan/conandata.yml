@@ -1,7 +1,7 @@
 sources:
   "3.21.12":
-    url: "https://github.com/Centimo/protobuf/archive/a9840a187b11c3ddb85b879e8fc86e7fad52c5eb.tar.gz"
-    sha256: "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed"
+    url: "https://github.com/Centimo/protobuf/archive/f9d6092b13c8f141550b78d5ca2628554eaf6bd6.tar.gz"
+    sha256: "f5be40bd6b18a6cf697ab5928f322706960af8f38e37c3670589054d5f26b533"
 
 absl_deps:
   "3.21.12":
