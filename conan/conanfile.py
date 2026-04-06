@@ -167,8 +167,8 @@ class ProtobufConan(ConanFile):
 
         config_cmake = os.path.join(self.package_folder, self._cmake_install_base_path, "protobuf-config.cmake")
         generate_cmake = os.path.join(self.package_folder, self._cmake_install_base_path, "protobuf-generate.cmake")
-        if os.path.exists(config_cmake):
-            rm(self, "protobuf-generate.cmake", folder=os.path.join(self.package_folder, self._cmake_install_base_path))
+        if os.path.exists(config_cmake) and not os.path.exists(generate_cmake):
+            # Older protobuf versions define protobuf_generate inside protobuf-config.cmake
             rename(self, config_cmake, generate_cmake)
 
         cmake_config_folder = os.path.join(self.package_folder, self._cmake_install_base_path)
