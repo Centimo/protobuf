@@ -207,15 +207,7 @@ class ProtobufConan(ConanFile):
         self.cpp_info.components["libprotobuf"].libs = [lib_prefix + "protobuf" + lib_suffix]
         self.cpp_info.components["libprotobuf"].includedirs = ["include"]
         absl_deps = [f"abseil::{c}" for c in self.conan_data["absl_deps"][self.version]]
-
-        # utf8_range is bundled inside protobuf package
-        self.cpp_info.components["utf8_range"].set_property("cmake_target_name", "utf8_range::utf8_range")
-        self.cpp_info.components["utf8_range"].libs = [lib_prefix + "utf8_range"]
-        self.cpp_info.components["utf8_validity"].set_property("cmake_target_name", "utf8_range::utf8_validity")
-        self.cpp_info.components["utf8_validity"].libs = [lib_prefix + "utf8_validity"]
-        self.cpp_info.components["utf8_validity"].requires = ["abseil::absl_strings"]
-
-        self.cpp_info.components["libprotobuf"].requires = list(absl_deps) + ["utf8_validity"]
+        self.cpp_info.components["libprotobuf"].requires = list(absl_deps)
         if self.options.with_zlib:
             self.cpp_info.components["libprotobuf"].requires.append("zlib::zlib")
 
@@ -243,7 +235,7 @@ class ProtobufConan(ConanFile):
             self.cpp_info.components["libprotobuf-lite"].builddirs.append(self._cmake_install_base_path)
             self.cpp_info.components["libprotobuf-lite"].libs = [lib_prefix + "protobuf-lite" + lib_suffix]
             self.cpp_info.components["libprotobuf-lite"].includedirs = ["include"]
-            self.cpp_info.components["libprotobuf-lite"].requires = list(absl_deps) + ["utf8_validity"]
+            self.cpp_info.components["libprotobuf-lite"].requires = list(absl_deps)
             if self.settings.os in ["Linux", "FreeBSD"]:
                 self.cpp_info.components["libprotobuf-lite"].system_libs.extend(["m", "pthread"])
                 if self._is_clang_x86 or "arm" in str(self.settings.arch):
