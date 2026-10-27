@@ -4,9 +4,10 @@ from conan.tools.apple import is_apple_os
 from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
 from conan.tools.files import copy, rename, get, apply_conandata_patches, export_conandata_patches, replace_in_file, rmdir, rm
 from conan.tools.microsoft import check_min_vs, is_msvc, is_msvc_static_runtime
-from conan.tools.scm import Version
+from conan.tools.scm import Git, Version
 
 import os
+import shutil
 
 required_conan_version = ">=2.1"
 
@@ -52,10 +53,22 @@ class ProtobufConan(ConanFile):
     def export_sources(self):
         export_conandata_patches(self)
         copy(self, "protobuf-conan-protoc-target.cmake", self.recipe_folder, self.export_sources_folder)
+        # Export exactly the files git tracks, so untracked build trees and ignored local state
+        # in the checkout never reach the recipe sources. Content is taken from the working tree.
+        # A checked-out submodule contributes its own tracked files; one that is not checked out
+        # stays a gitlink entry (mode 160000) with nothing on disk to copy.
         # php/, objectivec/ and ruby/ hold the runtimes for those languages; the C++ build never
         # references them (their code generators live in src/google/protobuf/compiler/).
-        copy(self, "*", src=os.path.join(self.recipe_folder, ".."), dst=self.export_sources_folder,
-             excludes=["conan/*", ".git/*", "php/*", "objectivec/*", "ruby/*"])
+        skipped_prefixes = ("conan/", "php/", "objectivec/", "ruby/")
+        repository_root = os.path.join(self.recipe_folder, "..")
+        index_entries = Git(self, folder=repository_root).run("ls-files --cached --recurse-submodules -s -z")
+        for entry in filter(None, index_entries.split("\0")):
+            metadata, path = entry.split("\t", 1)
+            if metadata.startswith("160000 ") or path.startswith(skipped_prefixes):
+                continue
+            destination = os.path.join(self.export_sources_folder, path)
+            os.makedirs(os.path.dirname(destination), exist_ok=True)
+            shutil.copy2(os.path.join(repository_root, path), destination, follow_symlinks=False)
 
     def config_options(self):
         if self.settings.os == "Windows":
