@@ -13,7 +13,7 @@ required_conan_version = ">=2.1"
 
 class ProtobufConan(ConanFile):
     name = "protobuf"
-    version = "3.21.12"
+    version = "3.21.12.1"
     deprecated = "protobuf 3.x is no longer supported by its authors - this version is kept for legacy reasons. Please migrate to a newer version"
     description = "Protocol Buffers - Google's data interchange format"
     topics = ("protocol-buffers", "protocol-compiler", "serialization", "rpc", "protocol-compiler")
@@ -67,7 +67,6 @@ class ProtobufConan(ConanFile):
         cmake_layout(self)
 
     def requirements(self):
-        self.requires("abseil/20250512.1", transitive_headers=True, transitive_libs=True)
         if self.options.with_zlib:
             self.requires("zlib/[>=1.2.11 <2]")
 
@@ -80,6 +79,14 @@ class ProtobufConan(ConanFile):
         if self.settings.compiler == "clang":
             if Version(self.settings.compiler.version) < "4":
                 raise ConanInvalidConfiguration(f"{self.ref} doesn't support clang < 4")
+
+    def package_id(self):
+        # The C++ standard is fixed by the project itself, not by the profile: _patch_sources()
+        # pins CMAKE_CXX_STANDARD to 17 in CMakeLists.txt (set after project(), so it wins over
+        # any toolchain value), and generate() removes the toolchain block that would turn
+        # compiler.cppstd into CMAKE_CXX_STANDARD. The artifact is identical for every
+        # compiler.cppstd, so it must not split the package id.
+        self.info.settings.rm_safe("compiler.cppstd")
 
     def source(self):
         if os.path.exists(os.path.join(self.source_folder, "CMakeLists.txt")):
@@ -95,6 +102,10 @@ class ProtobufConan(ConanFile):
 
     def generate(self):
         tc = CMakeToolchain(self)
+        # Drop the language-standard block (CMAKE_CXX_STANDARD/EXTENSIONS/REQUIRED and
+        # the C equivalents): the project sets its own standard, and package_id()
+        # relies on compiler.cppstd being inert for the build.
+        tc.blocks.remove("cppstd")
         tc.cache_variables["CMAKE_INSTALL_CMAKEDIR"] = self._cmake_install_base_path.replace("\\", "/")
         tc.cache_variables["protobuf_WITH_ZLIB"] = self.options.with_zlib
         tc.cache_variables["protobuf_BUILD_TESTS"] = False
@@ -103,8 +114,6 @@ class ProtobufConan(ConanFile):
             tc.cache_variables["protobuf_DEBUG_POSTFIX"] = ""
         tc.cache_variables["protobuf_BUILD_LIBPROTOC"] = self.settings.os != "tvOS"
         tc.cache_variables["protobuf_DISABLE_RTTI"] = not self.options.with_rtti
-        tc.cache_variables["protobuf_LOCAL_DEPENDENCIES_ONLY"] = True
-        tc.cache_variables["protobuf_ABSL_PROVIDER"] = "package"
 
         if is_msvc(self) or self._is_clang_cl:
             runtime = self.settings.get_safe("compiler.runtime")
@@ -128,6 +137,13 @@ class ProtobufConan(ConanFile):
 
     def _patch_sources(self):
         apply_conandata_patches(self)
+
+        # Upstream hard-codes C++11. Pin C++17 instead: consumers compile the protobuf headers
+        # as C++17 or later, and the headers branch on __cpp_aligned_new (kCacheAlignment in
+        # arena_impl.h), so a C++11 library disagrees with them on the layout of ThreadCache.
+        cmakelists = os.path.join(self.source_folder, "CMakeLists.txt")
+        replace_in_file(self, cmakelists, "set(CMAKE_CXX_STANDARD 11)", "set(CMAKE_CXX_STANDARD 17)")
+        replace_in_file(self, cmakelists, "-std=gnu++11", "-std=gnu++17")
 
         # In older versions of protobuf, this file defines the `protobuf_generate` function
         protobuf_config_cmake = os.path.join(self.source_folder, "cmake", "protobuf-config.cmake.in")
@@ -206,10 +222,8 @@ class ProtobufConan(ConanFile):
         self.cpp_info.components["libprotobuf"].builddirs.append(self._cmake_install_base_path)
         self.cpp_info.components["libprotobuf"].libs = [lib_prefix + "protobuf" + lib_suffix]
         self.cpp_info.components["libprotobuf"].includedirs = ["include"]
-        absl_deps = [f"abseil::{c}" for c in self.conan_data["absl_deps"][self.version]]
-        self.cpp_info.components["libprotobuf"].requires = list(absl_deps)
         if self.options.with_zlib:
-            self.cpp_info.components["libprotobuf"].requires.append("zlib::zlib")
+            self.cpp_info.components["libprotobuf"].requires = ["zlib::zlib"]
 
         if self.settings.os in ["Linux", "FreeBSD"]:
             self.cpp_info.components["libprotobuf"].system_libs.extend(["m", "pthread"])
@@ -225,7 +239,7 @@ class ProtobufConan(ConanFile):
         if self.settings.os != "tvOS":
             self.cpp_info.components["libprotoc"].set_property("cmake_target_name", "protobuf::libprotoc")
             self.cpp_info.components["libprotoc"].libs = [lib_prefix + "protoc" + lib_suffix]
-            self.cpp_info.components["libprotoc"].requires = ["libprotobuf"] + list(absl_deps)
+            self.cpp_info.components["libprotoc"].requires = ["libprotobuf"]
             self.cpp_info.components["libprotoc"].includedirs = ["include"]
 
         # libprotobuf-lite
@@ -235,7 +249,6 @@ class ProtobufConan(ConanFile):
             self.cpp_info.components["libprotobuf-lite"].builddirs.append(self._cmake_install_base_path)
             self.cpp_info.components["libprotobuf-lite"].libs = [lib_prefix + "protobuf-lite" + lib_suffix]
             self.cpp_info.components["libprotobuf-lite"].includedirs = ["include"]
-            self.cpp_info.components["libprotobuf-lite"].requires = list(absl_deps)
             if self.settings.os in ["Linux", "FreeBSD"]:
                 self.cpp_info.components["libprotobuf-lite"].system_libs.extend(["m", "pthread"])
                 if self._is_clang_x86 or "arm" in str(self.settings.arch):
