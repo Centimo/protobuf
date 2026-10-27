@@ -52,8 +52,10 @@ class ProtobufConan(ConanFile):
     def export_sources(self):
         export_conandata_patches(self)
         copy(self, "protobuf-conan-protoc-target.cmake", self.recipe_folder, self.export_sources_folder)
+        # php/, objectivec/ and ruby/ hold the runtimes for those languages; the C++ build never
+        # references them (their code generators live in src/google/protobuf/compiler/).
         copy(self, "*", src=os.path.join(self.recipe_folder, ".."), dst=self.export_sources_folder,
-             excludes=["conan/*", ".git/*"])
+             excludes=["conan/*", ".git/*", "php/*", "objectivec/*", "ruby/*"])
 
     def config_options(self):
         if self.settings.os == "Windows":
